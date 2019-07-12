@@ -8,5 +8,6 @@ import reactor.core.publisher.Mono
 
 interface BookRepository : ReactiveMongoRepository<Book,Long> {
     fun findById(id: String): Mono<Book>
-    fun findBookByTitleContaining(query: String):Flux<Book>
+    fun findBookByTitleContainsIgnoreCase(query: String):Flux<Book>
+    fun deleteById(id: String): Mono<Void>
 }

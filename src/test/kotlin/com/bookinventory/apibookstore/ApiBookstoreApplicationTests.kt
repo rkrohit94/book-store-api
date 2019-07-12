@@ -6,6 +6,7 @@ import com.bookinventory.apibookstore.model.GooleBook
 import com.bookinventory.apibookstore.model.ImageUrl
 import com.bookinventory.apibookstore.model.Item
 import com.bookinventory.apibookstore.repository.BookRepository
+import com.bookinventory.apibookstore.service.AuditService
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import org.junit.Test
@@ -34,6 +35,7 @@ class ApiBookstoreApplicationTests {
 
      var repository = mock(BookRepository::class.java)
      var webClientApi = mock(WebClientApi::class.java)
+     var auditService = mock(AuditService::class.java)
 
     @Test
     fun `should find all books`() {
@@ -41,7 +43,7 @@ class ApiBookstoreApplicationTests {
         `when`(repository.findAll()).thenReturn(bookFlux)
 //        every { repository.findAll() } returns bookFlux
 
-        val result = BookController(repository,webClientApi).getAllBooks()
+        val result = BookController(repository,webClientApi,auditService).getAllBooks()
         assert(result==bookFlux)
 
     }
@@ -51,7 +53,7 @@ class ApiBookstoreApplicationTests {
         val bookFlux = Mono.just(book)
         `when`(repository.save(ArgumentMatchers.any(Book::class.java))).thenReturn(bookFlux)
 
-        val result = BookController(repository,webClientApi).saveBook(book)
+        val result = BookController(repository,webClientApi,auditService).saveBook(book)
         assert(result==bookFlux)
 
     }
@@ -61,18 +63,30 @@ class ApiBookstoreApplicationTests {
         val fluxGooleBook = Flux.just(gooleBook)
         `when`(webClientApi.getBookfromApi(ArgumentMatchers.anyString())).thenReturn(fluxGooleBook)
 
-        val result = BookController(repository,webClientApi).getDataFromApi("games")
+        val result = BookController(repository,webClientApi,auditService).getDataFromApi("games")
         assert(result==fluxGooleBook)
     }
 
+
+    @Test
+    fun `should search book By Title`(){
+        val fluxBook = Flux.just(book)
+        `when`(repository.findBookByTitleContainsIgnoreCase(ArgumentMatchers.anyString())).thenReturn(fluxBook)
+
+        val result = BookController(repository,webClientApi,auditService).getBooksBySearch("games")
+        assert(result==fluxBook)
+    }
+
 //    @Test
-//    fun `should find book by id`(){
-//        val bookMono = Mono.just(book)
-//        every { repository.findById(any<String>()) } returns bookMono
+//    fun `should be able to update book`(){
+//        val monoBook = Mono.just(book)
+//        `when`(repository.save(ArgumentMatchers.any(Book::class.java))).thenReturn(monoBook)
 //
-//        val result = BookController(repository,webClientApi).getBook("xyz")
-//        //verify { result }
-//        assert(result==bookMono)
+//        `when`(auditService.sendAddMessage(ArgumentMatchers.any(Book::class.java))).
+//
+//        val result = BookController(repository,webClientApi,auditService).updateBook("123",book)
+//        assert(result==monoBook)
 //    }
+
 
 }

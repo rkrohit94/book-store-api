@@ -4,32 +4,33 @@ import com.bookinventory.apibookstore.WebClientApi
 import com.bookinventory.apibookstore.model.Book
 import com.bookinventory.apibookstore.model.GooleBook
 import com.bookinventory.apibookstore.repository.BookRepository
-import org.springframework.beans.factory.annotation.Autowired
+import com.bookinventory.apibookstore.service.AuditService
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
-import org.springframework.web.reactive.function.client.WebClient
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 
 @RestController
 @CrossOrigin(origins = ["*"], allowedHeaders = ["*"])
-class BookController(private val repository: BookRepository, private val webClientApi: WebClientApi){
+class BookController(private val repository: BookRepository,
+                     private val webClientApi: WebClientApi,
+                     private val auditService: AuditService){
 
 
 
     @GetMapping("/books")
     fun getAllBooks()=repository.findAll()
 
-    @PostMapping("books")
+    @PostMapping("/books")
     @ResponseStatus(HttpStatus.CREATED)
-    fun saveBook(@RequestBody book: Book) = repository.save(book)
+    fun saveBook(@RequestBody book: Book)= repository.save(book).subscribe(auditService::sendAddMessage)
 
     @GetMapping("/books/{id}")
     fun getBook(@PathVariable id:String): Mono<ResponseEntity<Book>> {
         return repository.findById(id)
-                .map { book -> ResponseEntity.ok(book)  }
+                .map { book -> ResponseEntity.ok(book) }
                 .defaultIfEmpty(ResponseEntity.notFound().build())
 
     }
@@ -47,29 +48,27 @@ class BookController(private val repository: BookRepository, private val webClie
 //    }
 
     @PutMapping("/books/{id}")
-    fun updateProduct(@PathVariable(value = "id") id: String,
-                      @RequestBody book: Book): Mono<ResponseEntity<Book>> {
-        return repository.findById(id)
+    fun updateBook(@PathVariable(value = "id") id: String,
+                      @RequestBody book: Book): Mono<Book> {
+        val result = repository.findById(id)
                 .flatMap { existingBook ->
-//                    existingBook.title = book.title
                     existingBook.price = book.price
-//                    existingBook.authors = book.authors
-//                    existingBook.description = book.description
                     existingBook.quantity = book.quantity
                     repository.save(existingBook)
                 }
-                .map { updateProduct -> ResponseEntity.ok(updateProduct) }
-                .defaultIfEmpty(ResponseEntity.notFound().build())
+//                .map { updateProduct -> ResponseEntity.ok(updateProduct) }
+//                .defaultIfEmpty(ResponseEntity.notFound().build())
+        result.subscribe(auditService::sendEditMessage)
+        return result
     }
 
     @DeleteMapping("/books/{id}")
-    fun deleteBook(@PathVariable id: String): Mono<ResponseEntity<Void>> {
-        return repository.findById(id)
-                .flatMap { book ->
-                    repository.delete(book)
-                            .then(Mono.just(ResponseEntity.ok().build<Void>()))
-                }
-                .defaultIfEmpty(ResponseEntity.notFound().build())
+    fun deleteBook(@PathVariable id: String): Mono<Void> {
+        val result =  repository.findById(id)
+                     .subscribe(auditService::sendDeleteMessage)
+              return repository.deleteById(id)
+
+//                .defaultIfEmpty(ResponseEntity.notFound().build())
     }
 
     @GetMapping("/books/api/{search}")
@@ -79,8 +78,11 @@ class BookController(private val repository: BookRepository, private val webClie
 
     @GetMapping("/books/search/{query}")
     fun getBooksBySearch(@PathVariable query:String):Flux<Book>{
-        return repository.findBookByTitleContaining(query)
+        return repository.findBookByTitleContainsIgnoreCase(query)
     }
+
+    @GetMapping("/books/auditLog")
+    fun getAuditLog() = AuditService.auditLogs
 
 
 }
